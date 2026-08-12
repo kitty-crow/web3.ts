@@ -50,7 +50,19 @@ jobs:
                   bun info web3-hardhat-plugin@1.0.0 dependencies
 
             - name: Install from the existing dependency manifests
-              run: bun run scripts/ci/zero-warning.ts -- bun install --ignore-scripts --verbose
+              shell: bash
+              run: |
+                  set -o pipefail
+                  bun run scripts/ci/zero-warning.ts -- bun install --ignore-scripts --verbose 2>&1 | tee bun-install.log
+
+            - name: Preserve Bun install diagnostics
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: bun-install-diagnostics
+                  path: bun-install.log
+                  if-no-files-found: error
+                  retention-days: 7
 
             - name: Audit the resolved dependency graph
               run: bun run scripts/ci/zero-warning.ts -- bun audit --audit-level=low
