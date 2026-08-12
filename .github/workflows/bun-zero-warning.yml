@@ -44,10 +44,26 @@ jobs:
                   bun --version
                   bun --revision
 
-            - name: Verify registry resolution used by the monorepo
+            - name: Capture registry and lockfile resolution context
+              shell: bash
               run: |
-                  bun info web3@4.16.0 version
-                  bun info web3-hardhat-plugin@1.0.0 dependencies
+                  {
+                      echo '=== web3 registry version ==='
+                      bun info web3@4.16.0 version
+                      echo
+                      echo '=== web3-hardhat-plugin dependencies ==='
+                      bun info web3-hardhat-plugin@1.0.0 dependencies
+                      echo
+                      echo '=== web3-hardhat-plugin peerDependencies ==='
+                      bun info web3-hardhat-plugin@1.0.0 peerDependencies || true
+                  } | tee bun-registry-info.log
+                  {
+                      echo '=== yarn.lock: web3-hardhat-plugin ==='
+                      grep -n -A16 -B2 'web3-hardhat-plugin@' yarn.lock || true
+                      echo
+                      echo '=== yarn.lock: web3 ^4.3.0 selectors ==='
+                      grep -n -A16 -B2 -F 'web3@^4.3.0' yarn.lock || true
+                  } | tee bun-yarn-lock-context.log
 
             - name: Install from the existing dependency manifests
               shell: bash
@@ -60,7 +76,10 @@ jobs:
               uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
               with:
                   name: bun-install-diagnostics
-                  path: bun-install.log
+                  path: |
+                      bun-install.log
+                      bun-registry-info.log
+                      bun-yarn-lock-context.log
                   if-no-files-found: error
                   retention-days: 7
 
