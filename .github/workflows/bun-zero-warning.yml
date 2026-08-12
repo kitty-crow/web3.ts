@@ -67,7 +67,7 @@ jobs:
               shell: bash
               run: |
                   set -o pipefail
-                  bun run scripts/ci/zero-warning.ts -- bun install --linker hoisted --ignore-scripts --verbose 2>&1 | tee bun-install.log
+                  BUN_CONFIG_SKIP_LOAD_LOCKFILE=1 bun run scripts/ci/zero-warning.ts -- bun install --linker hoisted --ignore-scripts --no-save --verbose 2>&1 | tee bun-install.log
 
             - name: Preserve Bun install diagnostics
               if: always()
