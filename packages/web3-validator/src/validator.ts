@@ -19,7 +19,6 @@ import { Web3ValidationErrorObject } from 'web3-types';
 
 import { z, ZodType, ZodIssue, ZodIssueCode, ZodTypeAny } from 'zod';
 
-import { RawCreateParams } from 'zod/lib/types';
 import { Web3ValidatorError } from './errors.js';
 import { Json, JsonSchema } from './types.js';
 import formats from './formats.js';
@@ -92,13 +91,9 @@ const convertToZod = (schema: JsonSchema): ZodType => {
 	if (
 		schema?.type &&
 		schema?.type !== 'object' &&
-		typeof (z as unknown as { [key: string]: (params?: RawCreateParams) => ZodType })[
-			String(schema.type)
-		] === 'function'
+		typeof (z as unknown as { [key: string]: () => ZodType })[String(schema.type)] === 'function'
 	) {
-		return (z as unknown as { [key: string]: (params?: RawCreateParams) => ZodType })[
-			String(schema.type)
-		]();
+		return (z as unknown as { [key: string]: () => ZodType })[String(schema.type)]();
 	}
 	return z.object({ data: z.any() }).partial();
 };
