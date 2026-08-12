@@ -28,7 +28,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -52,8 +52,27 @@ jobs:
       - name: Initialise generated package files
         run: npx ts-node scripts/init.ts
 
-      - name: Build
-        run: yarn build:${{ matrix.target }}
+      - name: Build CommonJS prerequisite
+        if: matrix.target != 'cjs'
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn build:cjs 2>&1 | tee build-cjs-prerequisite.log
+
+      - name: Build target
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn build:${{ matrix.target }} 2>&1 | tee build-${{ matrix.target }}.log
+
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-${{ matrix.target }}-failure
+          path: build-*.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   lint:
     name: Lint
@@ -79,7 +98,19 @@ jobs:
         run: npx ts-node scripts/init.ts
 
       - name: Lint
-        run: yarn lint
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn lint 2>&1 | tee lint.log
+
+      - name: Upload lint diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lint-failure
+          path: lint.log
+          if-no-files-found: error
+          retention-days: 7
 
   unit:
     name: Unit Tests
@@ -108,7 +139,19 @@ jobs:
         run: yarn build:cjs
 
       - name: Run unit tests
-        run: yarn test:unit
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn test:unit 2>&1 | tee unit.log
+
+      - name: Upload unit diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unit-failure
+          path: unit.log
+          if-no-files-found: error
+          retention-days: 7
 
   integration-hardhat:
     name: Integration Hardhat HTTP
@@ -140,7 +183,21 @@ jobs:
         run: npx hardhat node > /tmp/web3-hardhat.log 2>&1 &
 
       - name: Run Hardhat HTTP integration tests
-        run: yarn test:e2e:hardhat:http
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn test:e2e:hardhat:http 2>&1 | tee integration-hardhat.log
+
+      - name: Upload Hardhat diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-hardhat-failure
+          path: |
+            integration-hardhat.log
+            /tmp/web3-hardhat.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   integration-geth:
     name: Integration Geth ${{ matrix.transport }}
@@ -173,4 +230,16 @@ jobs:
         run: yarn build:cjs
 
       - name: Run Geth integration tests
-        run: yarn test:e2e:geth:${{ matrix.transport }}
+        shell: bash
+        run: |
+          set -o pipefail
+          yarn test:e2e:geth:${{ matrix.transport }} 2>&1 | tee integration-geth-${{ matrix.transport }}.log
+
+      - name: Upload Geth diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-geth-${{ matrix.transport }}-failure
+          path: integration-geth-${{ matrix.transport }}.log
+          if-no-files-found: error
+          retention-days: 7
