@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh:
@@ -54,6 +54,20 @@ jobs:
           yarn audit --json > audit-all.json
           echo $? > audit-all.exit-code
           exit 0
+
+      - name: Commit regenerated lockfile
+        if: github.ref == 'refs/heads/agent/security-hardening-2026-08'
+        shell: bash
+        run: |
+          if git diff --quiet -- yarn.lock; then
+            echo 'Lockfile already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add yarn.lock
+          git commit -m 'refresh security-sensitive lock entries'
+          git push origin HEAD:agent/security-hardening-2026-08
 
       - name: Upload regenerated lockfile and audit reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
