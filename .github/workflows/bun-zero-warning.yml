@@ -5,8 +5,6 @@ on:
         branches:
             - '4.x'
     pull_request:
-        branches:
-            - '4.x'
         types: [opened, reopened, synchronize]
     workflow_dispatch:
     schedule:
@@ -69,7 +67,7 @@ jobs:
               shell: bash
               run: |
                   set -o pipefail
-                  bun run scripts/ci/zero-warning.ts -- bun install --ignore-scripts --verbose 2>&1 | tee bun-install.log
+                  bun run scripts/ci/zero-warning.ts -- bun install --linker hoisted --ignore-scripts --verbose 2>&1 | tee bun-install.log
 
             - name: Preserve Bun install diagnostics
               if: always()
