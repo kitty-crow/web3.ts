@@ -1,53 +1,69 @@
-name: 'Black Box Tests'
+name: Black Box Tests (manual)
+
 on:
-    push:
-        branches:
-            - release/**
-        tags:
-            - v4.*
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+env:
+    NODE_VERSION: '24'
+    YARN_VERSION: '1.22.22'
 
 jobs:
     build:
-        strategy:
-            matrix:
-                node: [18]
         name: Build Packages
         runs-on: ubuntu-latest
+        timeout-minutes: 45
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
-                  node-version: ${{ matrix.node }}
-            - run: yarn
-            - run: tar -czf /tmp/web3-${{ matrix.node }}.js.tar.gz --exclude="./.git" ./
-            - uses: actions/upload-artifact@v4
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: yarn
+            - name: Install Yarn Classic
+              run: npm install --global yarn@${{ env.YARN_VERSION }}
+            - name: Install without dependency lifecycle scripts
+              run: yarn install --ignore-scripts --frozen-lockfile
+            - name: Initialise generated package files
+              run: npx ts-node scripts/init.ts
+            - name: Build CommonJS packages
+              run: yarn build:cjs
+            - name: Package test workspace
+              run: tar -czf /tmp/web3-black-box.tar.gz --exclude='./.git' ./
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
-                  name: web3-${{ matrix.node }}.js.tar.gz
-                  path: /tmp/web3-${{ matrix.node }}.js.tar.gz
+                  name: web3-black-box
+                  path: /tmp/web3-black-box.tar.gz
+                  retention-days: 1
+
     black-box:
-        name: Black Box
+        name: Black Box ${{ matrix.backend }} ${{ matrix.mode }}
         needs: build
         runs-on: ubuntu-latest
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix:
+                mode: ['http', 'ws']
+                backend: ['geth', 'infura']
         env:
             INFURA_MAINNET_HTTP: ${{ secrets.INFURA_MAINNET_HTTP }}
             INFURA_MAINNET_WS: ${{ secrets.INFURA_MAINNET_WS }}
             INFURA_SEPOLIA_WS: ${{ secrets.INFURA_SEPOLIA_WS }}
             MODE: ${{ matrix.mode }}
-        strategy:
-            fail-fast: false
-            matrix:
-                node: [18]
-                mode: ['http', 'ws']
-                backend: ['geth', 'infura']
         steps:
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
-                  node-version: ${{ matrix.node }}
-            - uses: actions/download-artifact@v4
+                  node-version: ${{ env.NODE_VERSION }}
+            - name: Install Yarn Classic
+              run: npm install --global yarn@${{ env.YARN_VERSION }}
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
-                  name: web3-${{ matrix.node }}.js.tar.gz
+                  name: web3-black-box
                   path: /tmp
-            - run: tar -xf /tmp/web3-${{ matrix.node }}.js.tar.gz -C ./
-            - run: |
-                  yarn test:blackbox:${{ matrix.backend }}:${{ matrix.mode }}
+            - name: Extract test workspace
+              run: tar -xzf /tmp/web3-black-box.tar.gz -C ./
+            - name: Run black box tests
+              run: yarn test:blackbox:${{ matrix.backend }}:${{ matrix.mode }}
               shell: bash
