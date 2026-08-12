@@ -3,9 +3,8 @@ name: Security lockfile refresh
 on:
   push:
     branches:
-      - 'agent/security-hardening-2026-08'
+      - 'agents/bun-zero-warning-ci'
     paths:
-      - 'packages/web3-providers-ws/package.json'
       - '.github/workflows/security-lockfile-refresh.yml'
   workflow_dispatch:
 
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   refresh:
-    name: Refresh vulnerable compatible lock entries
+    name: Refresh dependencies within declared ranges
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -30,10 +29,10 @@ jobs:
       - name: Install Yarn Classic
         run: npm install --global yarn@1.22.22
 
-      - name: Refresh WebSocket dependency within existing major ranges
+      - name: Refresh all dependency resolutions within declared ranges
         run: |
           yarn install --ignore-scripts
-          yarn upgrade --ignore-scripts --pattern '^ws$'
+          yarn upgrade --ignore-scripts
 
       - name: Verify the direct WebSocket runtime floor
         run: |
@@ -56,7 +55,7 @@ jobs:
           exit 0
 
       - name: Commit regenerated lockfile
-        if: github.ref == 'refs/heads/agent/security-hardening-2026-08'
+        if: github.ref == 'refs/heads/agents/bun-zero-warning-ci'
         shell: bash
         run: |
           if git diff --quiet -- yarn.lock; then
@@ -66,8 +65,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add yarn.lock
-          git commit -m 'refresh security-sensitive lock entries'
-          git push origin HEAD:agent/security-hardening-2026-08
+          git commit -m 'refresh compatible dependency resolutions'
+          git push origin HEAD:agents/bun-zero-warning-ci
 
       - name: Upload regenerated lockfile and audit reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
