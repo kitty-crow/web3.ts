@@ -23,7 +23,7 @@ export function isUint8Array(data: unknown | Uint8Array): data is Uint8Array {
 	);
 }
 
-export function uint8ArrayConcat(...parts: Uint8Array[]): Uint8Array {
+export function uint8ArrayConcat(...parts: Uint8Array[]) {
 	const length = parts.reduce((prev, part) => {
 		const agg = prev + part.length;
 		return agg;
