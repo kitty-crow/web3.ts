@@ -44,8 +44,13 @@ jobs:
                   bun --version
                   bun --revision
 
+            - name: Verify registry resolution used by the monorepo
+              run: |
+                  bun info web3@4.16.0 version
+                  bun info web3-hardhat-plugin@1.0.0 dependencies
+
             - name: Install from the existing dependency manifests
-              run: bun run scripts/ci/zero-warning.ts -- bun install --ignore-scripts
+              run: bun run scripts/ci/zero-warning.ts -- bun install --ignore-scripts --verbose
 
             - name: Audit the resolved dependency graph
               run: bun run scripts/ci/zero-warning.ts -- bun audit --audit-level=low
