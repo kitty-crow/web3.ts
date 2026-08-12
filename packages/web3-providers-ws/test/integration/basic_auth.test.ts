@@ -52,7 +52,7 @@ describeIf(isWs)('Support of Basic Auth', () => {
 		server = app.listen(port, host);
 
 		server.on('upgrade', (req, socket, head) => {
-			if (!req.headers.authorization || !req.headers.authorization?.includes('Basic ')) {
+			if (!req.headers.authorization?.includes('Basic ')) {
 				socket.emit('error');
 				socket.destroy();
 			}
