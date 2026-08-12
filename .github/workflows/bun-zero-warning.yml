@@ -54,18 +54,6 @@ jobs:
                       echo
                       echo '=== web3-hardhat-plugin peerDependencies ==='
                       bun info web3-hardhat-plugin@1.0.0 peerDependencies || true
-                      echo
-                      echo '=== TypeDoc plugin peer dependency matrix ==='
-                      for package in \
-                        '@droppedcode/typedoc-plugin-relative-includes@1.0.2' \
-                        'typedoc-monorepo-link-types@0.0.4' \
-                        'typedoc-plugin-extras@2.3.0' \
-                        'typedoc-plugin-markdown@3.17.1' \
-                        'typedoc-plugin-mdn-links@2.0.0' \
-                        'typedoc-plugin-merge-modules@5.1.0'; do
-                          echo "--- ${package} ---"
-                          bun info "${package}" peerDependencies || true
-                      done
                   } | tee bun-registry-info.log
                   {
                       echo '=== yarn.lock: web3-hardhat-plugin ==='
@@ -94,7 +82,19 @@ jobs:
                   retention-days: 7
 
             - name: Audit the resolved dependency graph
-              run: bun run scripts/ci/zero-warning.ts -- bun audit --audit-level=low
+              shell: bash
+              run: |
+                  set -o pipefail
+                  bun run scripts/ci/zero-warning.ts -- bun audit --audit-level=low 2>&1 | tee bun-audit.log
+
+            - name: Preserve Bun audit diagnostics
+              if: always()
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+              with:
+                  name: bun-audit-diagnostics
+                  path: bun-audit.log
+                  if-no-files-found: error
+                  retention-days: 7
 
             - name: Initialise test configuration with Bun
               run: bun run scripts/ci/zero-warning.ts -- bun run scripts/init.ts
