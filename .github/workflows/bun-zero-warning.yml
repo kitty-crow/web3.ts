@@ -54,6 +54,18 @@ jobs:
                       echo
                       echo '=== web3-hardhat-plugin peerDependencies ==='
                       bun info web3-hardhat-plugin@1.0.0 peerDependencies || true
+                      echo
+                      echo '=== TypeDoc plugin peer dependency matrix ==='
+                      for package in \
+                        '@droppedcode/typedoc-plugin-relative-includes@1.0.2' \
+                        'typedoc-monorepo-link-types@0.0.4' \
+                        'typedoc-plugin-extras@2.3.0' \
+                        'typedoc-plugin-markdown@3.17.1' \
+                        'typedoc-plugin-mdn-links@2.0.0' \
+                        'typedoc-plugin-merge-modules@5.1.0'; do
+                          echo "--- ${package} ---"
+                          bun info "${package}" peerDependencies || true
+                      done
                   } | tee bun-registry-info.log
                   {
                       echo '=== yarn.lock: web3-hardhat-plugin ==='
