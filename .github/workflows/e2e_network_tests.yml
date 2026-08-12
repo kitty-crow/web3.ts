@@ -1,55 +1,46 @@
-name: 'E2E Network Tests'
-on:
-    push:
-        branches:
-            - release/**
-        tags:
-            - v4.*
+name: E2E Network Tests (manual)
 
-#    For test purpose only:
-#    pull_request:
-#        branches:
-#            - '4.x'
-#        types: [ opened, reopened, synchronize ]
+on:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+env:
+    NODE_VERSION: '24'
+    YARN_VERSION: '1.22.22'
+
 jobs:
-    build:
-        name: Build Packages
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 18
-                  cache: yarn
-            - run: yarn
-            - uses: actions/cache/save@v4
-              with:
-                  path: ./
-                  key: web3-e2e-18-${{github.sha}}
     e2e:
-        name: E2E Network Tests
-        needs: build
+        name: E2E ${{ matrix.network }} ${{ matrix.mode }}
         runs-on: ubuntu-latest
-        env:
-            INFURA_SEPOLIA_HTTP: ${{ secrets.CS_ETH_SEPOLIA }}
-            INFURA_MAINNET_HTTP: ${{ secrets.CS_ETH_MAINNET }}
-            MODE: ${{ matrix.mode }}
-            TEST_ACCOUNT_ADDRESS: ${{ fromJSON('{"sepolia":"0xa127C5E6a7E3600Ac34A9a9928E52521677e7211","mainnet":"0x98AF911164f9d4E0f5983ed114949c3Bfe3ADc9d"}')[matrix.network] }}
-            ALLOWED_SEND_TRANSACTION: ${{ secrets.E2E_TESTS_ALLOWED_SEND_TRANSACTION }}
-            TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+        timeout-minutes: 45
         strategy:
             fail-fast: false
             matrix:
                 mode: ['http']
                 network: ['sepolia', 'mainnet']
+        env:
+            INFURA_SEPOLIA_HTTP: ${{ secrets.INFURA_SEPOLIA_HTTP }}
+            INFURA_MAINNET_HTTP: ${{ secrets.INFURA_MAINNET_HTTP }}
+            MODE: ${{ matrix.mode }}
+            TEST_ACCOUNT_ADDRESS: ${{ fromJSON('{"sepolia":"0xa127C5E6a7E3600Ac34A9a9928E52521677e7211","mainnet":"0x98AF911164f9d4E0f5983ed114949c3Bfe3ADc9d"}')[matrix.network] }}
+            ALLOWED_SEND_TRANSACTION: ${{ secrets.E2E_TESTS_ALLOWED_SEND_TRANSACTION }}
+            TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
         steps:
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
-                  node-version: 18
-            - uses: actions/cache/restore@v4
-              with:
-                  path: ./
-                  key: web3-e2e-18-${{github.sha}}
-            - run: |
-                  yarn test:e2e:${{ matrix.network }}:${{ matrix.mode }}
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: yarn
+            - name: Install Yarn Classic
+              run: npm install --global yarn@${{ env.YARN_VERSION }}
+            - name: Install without dependency lifecycle scripts
+              run: yarn install --ignore-scripts --frozen-lockfile
+            - name: Initialise generated package files
+              run: npx ts-node scripts/init.ts
+            - name: Build CommonJS packages
+              run: yarn build:cjs
+            - name: Run live network tests
+              run: yarn test:e2e:${{ matrix.network }}:${{ matrix.mode }}
               shell: bash

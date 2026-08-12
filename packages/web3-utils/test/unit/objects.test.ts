@@ -37,6 +37,26 @@ describe('objects', () => {
 			expect(result.c).toEqual(new Uint8Array([1, 2, 3]));
 		});
 
+		it('should not mutate the destination', () => {
+			const destination: Record<string, unknown> = { existing: true };
+			const result = mergeDeep(destination, { added: true });
+
+			expect(destination).toEqual({ existing: true });
+			expect(result).toEqual({ existing: true, added: true });
+			expect(result).not.toBe(destination);
+		});
+
+		it('should not pollute Object.prototype when used as a destination', () => {
+			const pollutionKey = '__web3MergeDeepPollutionRegression__';
+
+			try {
+				mergeDeep(Object.prototype as Record<string, unknown>, { [pollutionKey]: true });
+				expect(({} as Record<string, unknown>)[pollutionKey]).toBeUndefined();
+			} finally {
+				delete (Object.prototype as Record<string, unknown>)[pollutionKey];
+			}
+		});
+
 		it('should not overwrite if undefined', () => {
 			const result = mergeDeep(
 				{},

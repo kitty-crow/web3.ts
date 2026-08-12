@@ -1,0 +1,87 @@
+name: Upstream Compatibility
+
+on:
+  push:
+    branches:
+      - '4.x'
+      - 'agent/**'
+  pull_request:
+    branches:
+      - '4.x'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  differential:
+    name: Differential Web3.js 4.x compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UPSTREAM_BASELINE: bf1691765bd9d4b0f7a4479e915207707d69226d
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: fork
+
+      - name: Checkout immutable upstream-compatible baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.UPSTREAM_BASELINE }}
+          path: upstream-baseline
+
+      - name: Set up maintainer Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Install Yarn Classic
+        run: npm install --global yarn@1.22.22
+
+      - name: Install and build immutable baseline
+        working-directory: upstream-baseline
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npx ts-node scripts/init.ts
+          yarn build:cjs
+
+      - name: Install and build fork
+        working-directory: fork
+        run: |
+          yarn install --frozen-lockfile --ignore-scripts
+          npx ts-node scripts/init.ts
+          yarn build:cjs
+
+      - name: Compare on current maintainer runtime
+        run: |
+          WEB3_MODULE="$PWD/upstream-baseline/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > baseline-node24.json
+          WEB3_MODULE="$PWD/fork/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > fork-node24.json
+          node fork/scripts/compatibility/compare.cjs baseline-node24.json fork-node24.json
+
+      - name: Set up Node.js 16 compatibility runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '16'
+
+      - name: Compare on Node.js 16
+        run: |
+          WEB3_MODULE="$PWD/upstream-baseline/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > baseline-node16.json
+          WEB3_MODULE="$PWD/fork/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > fork-node16.json
+          node fork/scripts/compatibility/compare.cjs baseline-node16.json fork-node16.json
+
+      - name: Set up Node.js 14 minimum compatibility runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '14'
+
+      - name: Compare on Node.js 14
+        run: |
+          WEB3_MODULE="$PWD/upstream-baseline/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > baseline-node14.json
+          WEB3_MODULE="$PWD/fork/packages/web3/lib/commonjs/index.js" node fork/scripts/compatibility/cases.cjs > fork-node14.json
+          node fork/scripts/compatibility/compare.cjs baseline-node14.json fork-node14.json

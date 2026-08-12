@@ -1,0 +1,127 @@
+name: 'Bun compatibility / zero warnings'
+
+on:
+    push:
+        branches:
+            - '4.x'
+    pull_request:
+        types: [opened, reopened, synchronize]
+    workflow_dispatch:
+    schedule:
+        - cron: '17 4 * * *'
+
+permissions:
+    contents: read
+
+concurrency:
+    group: bun-zero-warning-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    CI: 'true'
+    FORCE_COLOR: '0'
+    NO_COLOR: '1'
+    NODE_OPTIONS: '--throw-deprecation --trace-warnings'
+
+jobs:
+    bun-zero-warning:
+        name: Bun latest / build, lint, test, audit
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        steps:
+            - name: Checkout
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+            - name: Set up latest Bun
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+              with:
+                  bun-version: latest
+
+            - name: Record Bun version
+              run: |
+                  bun --version
+                  bun --revision
+
+            - name: Capture registry and lockfile resolution context
+              shell: bash
+              run: |
+                  {
+                      echo '=== web3 registry version ==='
+                      bun info web3@4.16.0 version
+                      echo
+                      echo '=== web3-hardhat-plugin dependencies ==='
+                      bun info web3-hardhat-plugin@1.0.0 dependencies
+                      echo
+                      echo '=== web3-hardhat-plugin peerDependencies ==='
+                      bun info web3-hardhat-plugin@1.0.0 peerDependencies || true
+                  } | tee bun-registry-info.log
+                  {
+                      echo '=== yarn.lock: web3-hardhat-plugin ==='
+                      grep -n -A16 -B2 'web3-hardhat-plugin@' yarn.lock || true
+                      echo
+                      echo '=== yarn.lock: web3 ^4.3.0 selectors ==='
+                      grep -n -A16 -B2 -F 'web3@^4.3.0' yarn.lock || true
+                  } | tee bun-yarn-lock-context.log
+
+            - name: Install from the existing dependency manifests
+              shell: bash
+              run: |
+                  set -o pipefail
+                  BUN_CONFIG_SKIP_LOAD_LOCKFILE=1 bun run scripts/ci/zero-warning.ts -- bun install --linker hoisted --ignore-scripts --no-save --verbose 2>&1 | tee bun-install.log
+
+            - name: Preserve Bun install diagnostics
+              if: always()
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+              with:
+                  name: bun-install-diagnostics
+                  path: |
+                      bun-install.log
+                      bun-registry-info.log
+                      bun-yarn-lock-context.log
+                  if-no-files-found: error
+                  retention-days: 7
+
+            - name: Audit the resolved dependency graph
+              shell: bash
+              run: |
+                  set -o pipefail
+                  bun run scripts/ci/zero-warning.ts -- bun audit --audit-level=low 2>&1 | tee bun-audit.log
+
+            - name: Preserve Bun audit diagnostics
+              if: always()
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+              with:
+                  name: bun-audit-diagnostics
+                  path: bun-audit.log
+                  if-no-files-found: error
+                  retention-days: 7
+
+            - name: Initialise test configuration with Bun
+              run: bun run scripts/ci/zero-warning.ts -- bun run scripts/init.ts
+
+            - name: Build CommonJS with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run build:cjs
+
+            - name: Build ESM with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run build:esm
+
+            - name: Build declarations with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run build:types
+
+            - name: Build browser bundles with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run build:web
+
+            - name: Lint with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run lint
+
+            - name: Run unit tests with Bun runtime compatibility
+              run: bun run scripts/ci/zero-warning.ts -- bun --throw-deprecation --bun run test:unit
+
+            - name: Ensure Bun validation did not rewrite compatibility manifests
+              shell: bash
+              run: |
+                  git diff --exit-code -- \
+                    package.json \
+                    yarn.lock \
+                    ':(glob)packages/*/package.json' \
+                    ':(glob)tools/*/package.json'
