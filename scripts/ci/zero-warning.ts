@@ -26,11 +26,12 @@ if (argv.length === 0) {
 const warningPatterns = [
 	/\bDeprecationWarning\b/i,
 	/\bExperimentalWarning\b/i,
-	/\bdeprecated\b/i,
-	/\bdeprecation\b/i,
 	/\[DEP\d+\]/,
-	/(?:^|\s)(?:npm|yarn|bun)?\s*WARN(?:ING)?(?:\s|:)/i,
-	/(?:^|\s)warning(?:\s|:)/i,
+	/^\s*(?:npm|yarn|bun)?\s*WARN(?:ING)?(?:\s|:)/i,
+	/^\s*warning(?:\s|:)/i,
+	/^\s*deprecation(?:\s+warning)?\s*:/i,
+	/^\s*deprecated(?:\s|:)/i,
+	/\b(?:is|was|has been|will be)\s+deprecated\b/i,
 	/\bwarnings?\s*[:=]\s*[1-9]\d*\b/i,
 ];
 
