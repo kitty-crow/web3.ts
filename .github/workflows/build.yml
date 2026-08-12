@@ -3,12 +3,14 @@ name: Build and Test
 on:
   push:
     branches:
+      - 'main'
       - '4.x'
       - 'agent/**'
     tags:
       - 'v4*'
   pull_request:
     branches:
+      - 'main'
       - '4.x'
     types: [opened, reopened, synchronize]
   workflow_dispatch:
